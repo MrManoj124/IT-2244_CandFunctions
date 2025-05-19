@@ -1,0 +1,57 @@
+//01 - check whether you are eligible to vote.
+#include<stdio.h>
+int main(){
+	int age;
+	printf("Enter your age: ");
+	scanf("%d",&age);
+	if(age>0 && age<100){
+		if(age>18){
+		printf("You are eligible to vote!\n");
+		}
+		else{
+			printf("You're not eligible to vote!\n");
+		}
+	}
+	else{
+		printf("Invalid age!\n");
+	}
+return 0;
+}
+
+ans:-
+{ ~ }  »   vi if.c
+{ ~ }  »   gcc if.c -o if
+{ ~ }  »  ./if
+Enter your age: 24
+You are eligible to vote!
+{ ~ }  »   ./if
+Enter your age: -5
+Invalid age!
+{ ~ }  »   ./if
+Enter your age: 345
+Invalid age!
+{ ~ }  »   ./if
+Enter your age: 12
+You're not eligible to vote!
+
+//02 ternery operators
+test_condition ? expression1 : expression2;
+
+#include<stdio.h>
+int main(){
+	int num;
+	printf("Enter the number : ");
+	scanf("%d",&num);
+	num>=0 ? printf("It's a positive number..!\n"): printf("It's a negative number..!\n");
+return 0;
+}
+
+ans:-
+{ ~ }  »  vi if.c
+{ ~ }  »  gcc if.c -o if
+{ ~ }  »  ./if
+Enter the number : 24
+It's a positive number..!
+{ ~ }  »  ./if
+Enter the number : -5
+It's a negative number..!
