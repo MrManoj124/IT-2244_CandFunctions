@@ -17,5 +17,7 @@ int main()
 
     char letter='o';
     printf("%c\n",letter);
-    
+    printf("%\n%d",letter);
+
+    return 0;
 }
