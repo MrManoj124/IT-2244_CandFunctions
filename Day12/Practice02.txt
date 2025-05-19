@@ -9,7 +9,7 @@ int main()
     age=31;
     printf("New age : %d\n",age);
 
-    int a=5;
+    int a=15;
     int b=a;
     printf("A: %d\n",a);
     printf("B: %d\n",b);
