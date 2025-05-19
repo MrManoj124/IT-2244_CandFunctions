@@ -1,0 +1,15 @@
+01-Print Hello World!
+
+#include<stdio.h> //input output functionalities
+
+int main()
+{
+    printf("Hello World..!\n");
+    return 0;
+}
+
+//get the permission
+gcc cesion.c -o cesion
+
+//To run the program
+./cesion
