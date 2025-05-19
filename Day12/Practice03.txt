@@ -1,0 +1,21 @@
+03 - Datatypes
+
+#include<stdio.h>
+int main()
+{
+    int age=10;
+    printf("%d\n",age);
+    printf("size:%zu\n", sizeof(age));
+
+    double number=12.45;
+    printf("%lf\n",number);
+    printf("%.21f\n",number);
+
+    float number1=10.25f;
+    printf("%f\n",number1);
+    printf("%.f\n",number1);
+
+    char letter='o';
+    printf("%c\n",letter);
+    
+}
