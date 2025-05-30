@@ -1,0 +1,83 @@
+#include<stdio.h>
+#include<unistd.h>
+int main()
+{
+	fork();
+	fork();
+	printf("Hello Worrld!\n");
+	return 0;
+}
+
+#include<stdio.h>
+#include<unistd.h>
+int main()
+{
+	int f=fork();
+	if(f==0)
+	{
+		printf("I'm the Child!\n");
+	}
+	else
+	{
+		printf("I'm the Parent!\n");
+	}
+	return 0;
+}
+
+
+
+
+#include<stdio.h>
+#include<unistd.h>
+int main()
+{
+	int f=fork();
+	if(f==0)
+	{
+		printf("I'm the child!\n");
+		int sum;
+		for(int i=1; i<=5; i++)
+		{
+			printf("%d",i);
+			sum+=i;
+		}
+		printf("\nSummation of child Process : %d\n",sum);
+	}
+	else
+	{
+		printf("I'm the parent!\n");
+		int psum;
+		for(int i=6; i<=10; i++)
+		{
+			printf("%d",i);
+			psum+=i;
+		}
+		printf("\nSummation of parent process: %d\n",psum);
+	}
+	return 0;
+}
+
+
+
+
+#include<stdio.h>
+#include<unistd.h>
+int main(){
+	int n;
+	int f = fork();
+	if(f==0){
+		n = 1;
+	}
+	else{
+		n = 6;
+	}
+	
+	int sum=0;
+	for(int i=n; i<n+5; i++){
+		printf("%d ", i);
+		sum+=i;
+	}
+	printf("\nSummation : %d\n",sum);
+		
+	return 0;
+}
