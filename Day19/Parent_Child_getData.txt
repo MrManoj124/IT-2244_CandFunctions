@@ -1,0 +1,72 @@
+//Parent and child with message
+#include<stdio.h>
+#include<unistd.h>
+#include<sys/ipc.h>
+#include<sys/msg.h>
+#include<stdlib.h>
+#include<string.h>
+
+#define MSGKEY 1111
+#define MAX_NAME_LEN 100
+#define MAX_REGNO_LEN 100
+
+struct person{
+	long m_type;
+	int age[100];
+	char name[MAX_NAME_LEN];
+	int RegNo[MAX_REGNO_LEN];
+};
+
+
+int main()
+{
+	int msgid;
+	struct 
+	int f=fork();
+	if(f>0)
+	{
+	key_t key;
+	int msgid;
+	//ftok to generate unique key
+	key = ftok("progfile",65);
+	//msgget creates a message queue
+	//and returns identifier
+	msgid=msgget(key,0666 | IPC_CREAT);
+	message.mesg_type=1;
+	printf("Enter Name : \n");
+	fgets(message.mesg_text,MAX,stdin);
+	//message send to send message
+	
+	msgid=msgget(key,0666 | IPC_CREAT);
+	message.mesg_type=1;
+	printf("Enter RegNo : \n");
+	fgets(message.mesg_num1,MAX,stdin);
+	
+	msgid=msgget(key,0666 | IPC_CREAT);
+	message.mesg_type=1;
+	printf("Enter age : \n");
+	fgets(message.mesg_num2,MAX,stdin);
+	
+	msgsnd(msgid, &message, sizeof(message), 0);
+	//display the message
+	printf("Data send is : %s\n",message.mesg_text);
+	printf("Data send is : %d\n",message.mesg_num1);
+	printf("Data send is : %d\n",message.mesg_num2);
+
+	msgid = msgget(key,0666 | IPC_CREAT);
+	//msgrcv to receive message
+	msgrcv(msgid, &message, sizeof(message),1,0);
+	//display the message
+	printf("User Name is : %s \n", message.mesg_text);
+	printf("User RegNo is : %s \n", message.mesg_num1);
+	printf("User age is : %s \n", message.mesg_num2);
+	//to destroy the message queue
+	msgctl(msgid, IPC_RMID, NULL);
+	printf("I'm a Parent Id : %d\n",getpid());
+	}
+	if(f==0)
+	{
+		printf("I'm a Child Id : %d\n",getpid());
+	}
+	return 0;
+}
