@@ -1,0 +1,283 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <string.h>
+#include <errno.h>
+#include <math.h> // For M_PI if available
+
+#define MAX_LEN 100
+#define BUFFER_SIZE 1024
+
+// Write all bytes to fd reliably
+ssize_t write_all(int fd, const void *buf, size_t count) {
+    size_t left = count;
+    const char* ptr = buf;
+    while (left > 0) {
+        ssize_t written = write(fd, ptr, left);
+        if (written < 0) {
+            if (errno == EINTR) continue;
+            return -1;
+        }
+        left -= written;
+        ptr += written;
+    }
+    return count;
+}
+
+// Read until newline or EOF or buffer full
+ssize_t read_until_newline(int fd, char *buf, size_t maxlen) {
+    size_t idx = 0;
+    while (idx < maxlen - 1) {
+        char c;
+        ssize_t r = read(fd, &c, 1);
+        if (r == 0) break; // EOF
+        if (r < 0) {
+            if (errno == EINTR) continue;
+            return -1;
+        }
+        buf[idx++] = c;
+        if (c == '\n') break;
+    }
+    buf[idx] = '\0';
+    return idx;
+}
+
+double parse_double(const char *str) {
+    char *endptr;
+    double val = strtod(str, &endptr);
+    if (endptr == str || *endptr != '\0' && *endptr != '\n') {
+        // Invalid double, return NaN
+        return NAN;
+    }
+    return val;
+}
+
+int main() {
+    int pipe_parent_to_child[2];
+    int pipe_child_to_parent[2];
+
+    if (pipe(pipe_parent_to_child) == -1) {
+        perror("pipe parent->child failed");
+        exit(EXIT_FAILURE);
+    }
+    if (pipe(pipe_child_to_parent) == -1) {
+        perror("pipe child->parent failed");
+        exit(EXIT_FAILURE);
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid == 0) {
+        // Child process
+        close(pipe_parent_to_child[1]);
+        close(pipe_child_to_parent[0]);
+
+        char name[MAX_LEN];
+        char reg_no[MAX_LEN];
+        char age[MAX_LEN];
+        char radius_str[MAX_LEN];
+        char square_side_str[MAX_LEN];
+        char rect_width_str[MAX_LEN];
+        char rect_height_str[MAX_LEN];
+
+        if (read_until_newline(pipe_parent_to_child[0], name, sizeof(name)) <= 0 ||
+            read_until_newline(pipe_parent_to_child[0], reg_no, sizeof(reg_no)) <= 0 ||
+            read_until_newline(pipe_parent_to_child[0], age, sizeof(age)) <= 0 ||
+            read_until_newline(pipe_parent_to_child[0], radius_str, sizeof(radius_str)) <= 0 ||
+            read_until_newline(pipe_parent_to_child[0], square_side_str, sizeof(square_side_str)) <= 0 ||
+            read_until_newline(pipe_parent_to_child[0], rect_width_str, sizeof(rect_width_str)) <= 0 ||
+            read_until_newline(pipe_parent_to_child[0], rect_height_str, sizeof(rect_height_str)) <= 0) {
+            fprintf(stderr, "Child: Failed to read all inputs\n");
+            close(pipe_parent_to_child[0]);
+            close(pipe_child_to_parent[1]);
+            exit(EXIT_FAILURE);
+        }
+
+        // Strip newlines
+        name[strcspn(name, "\n")] = 0;
+        reg_no[strcspn(reg_no, "\n")] = 0;
+        age[strcspn(age, "\n")] = 0;
+        radius_str[strcspn(radius_str, "\n")] = 0;
+        square_side_str[strcspn(square_side_str, "\n")] = 0;
+        rect_width_str[strcspn(rect_width_str, "\n")] = 0;
+        rect_height_str[strcspn(rect_height_str, "\n")] = 0;
+
+        double radius = parse_double(radius_str);
+        double square_side = parse_double(square_side_str);
+        double rect_width = parse_double(rect_width_str);
+        double rect_height = parse_double(rect_height_str);
+
+        if (isnan(radius) || isnan(square_side) || isnan(rect_width) || isnan(rect_height)) {
+            fprintf(stderr, "Child: Invalid numeric input(s)\n");
+            close(pipe_parent_to_child[0]);
+            close(pipe_child_to_parent[1]);
+            exit(EXIT_FAILURE);
+        }
+
+        double circle_area = M_PI * radius * radius;
+        double square_area = square_side * square_side;
+        double rectangle_area = rect_width * rect_height;
+
+        // Prepare output in elegant formatted style
+        char output[BUFFER_SIZE];
+        int n = snprintf(output, BUFFER_SIZE,
+            "\n========================================\n"
+            "            Child Process Output\n"
+            "========================================\n"
+            "Name           : %s\n"
+            "Registration # : %s\n"
+            "Age            : %s\n\n"
+            "Geometry Calculations:\n"
+            "---------------------\n"
+            "Circle Area (radius %.2f)    : %.4f\n"
+            "Square Area (side %.2f)      : %.4f\n"
+            "Rectangle Area (%.2f x %.2f) : %.4f\n"
+            "========================================\n",
+            name, reg_no, age,
+            radius, circle_area,
+            square_side, square_area,
+            rect_width, rect_height, rectangle_area);
+
+        if (n < 0 || n >= BUFFER_SIZE) {
+            fprintf(stderr, "Child: Output formatting error\n");
+            close(pipe_parent_to_child[0]);
+            close(pipe_child_to_parent[1]);
+            exit(EXIT_FAILURE);
+        }
+
+        if (write_all(pipe_child_to_parent[1], output, (size_t)n) != n) {
+            perror("Child: Failed to write to parent pipe");
+            close(pipe_parent_to_child[0]);
+            close(pipe_child_to_parent[1]);
+            exit(EXIT_FAILURE);
+        }
+
+        close(pipe_parent_to_child[0]);
+        close(pipe_child_to_parent[1]);
+        exit(EXIT_SUCCESS);
+
+    } else {
+        // Parent process
+        close(pipe_parent_to_child[0]);
+        close(pipe_child_to_parent[1]);
+
+        char name[MAX_LEN], reg_no[MAX_LEN], age[MAX_LEN];
+        char radius_str[MAX_LEN], square_side_str[MAX_LEN], rect_width_str[MAX_LEN], rect_height_str[MAX_LEN];
+
+        printf("========================================\n");
+        printf("        Enter Your Details\n");
+        printf("========================================\n");
+
+        printf("Name: ");
+        fflush(stdout);
+        if (!fgets(name, MAX_LEN, stdin)) {
+            fprintf(stderr, "Parent: Failed to read name\n");
+            goto cleanup_and_exit;
+        }
+        if (!fgets(reg_no, MAX_LEN, stdin)) {
+            fprintf(stderr, "Parent: Failed to read reg no\n");
+            goto cleanup_and_exit;
+        }
+        printf("Reg No: ");
+        fflush(stdout);
+        if (!fgets(reg_no, MAX_LEN, stdin)) {
+            fprintf(stderr, "Parent: Failed to read reg no\n");
+            goto cleanup_and_exit;
+        }
+        printf("Age: ");
+        fflush(stdout);
+        if (!fgets(age, MAX_LEN, stdin)) {
+            fprintf(stderr, "Parent: Failed to read age\n");
+            goto cleanup_and_exit;
+        }
+
+        printf("Radius of Circle: ");
+        fflush(stdout);
+        if (!fgets(radius_str, MAX_LEN, stdin)) {
+            fprintf(stderr, "Parent: Failed to read radius\n");
+            goto cleanup_and_exit;
+        }
+
+        printf("Side of Square: ");
+        fflush(stdout);
+        if (!fgets(square_side_str, MAX_LEN, stdin)) {
+            fprintf(stderr, "Parent: Failed to read square side\n");
+            goto cleanup_and_exit;
+        }
+
+        printf("Width of Rectangle: ");
+        fflush(stdout);
+        if (!fgets(rect_width_str, MAX_LEN, stdin)) {
+            fprintf(stderr, "Parent: Failed to read rectangle width\n");
+            goto cleanup_and_exit;
+        }
+
+        printf("Height of Rectangle: ");
+        fflush(stdout);
+        if (!fgets(rect_height_str, MAX_LEN, stdin)) {
+            fprintf(stderr, "Parent: Failed to read rectangle height\n");
+            goto cleanup_and_exit;
+        }
+
+        // Ensure each input ends with \n so child's read_until_newline succeeds
+        #define ENSURE_NEWLINE(str) \
+            if (strchr(str, '\n') == NULL) { \
+                size_t len = strlen(str); \
+                if (len < MAX_LEN - 1) { \
+                    str[len] = '\n'; \
+                    str[len+1] = '\0'; \
+                } \
+            }
+
+        ENSURE_NEWLINE(name);
+        ENSURE_NEWLINE(reg_no);
+        ENSURE_NEWLINE(age);
+        ENSURE_NEWLINE(radius_str);
+        ENSURE_NEWLINE(square_side_str);
+        ENSURE_NEWLINE(rect_width_str);
+        ENSURE_NEWLINE(rect_height_str);
+
+        // Write all inputs to child pipe
+        if (write_all(pipe_parent_to_child[1], name, strlen(name)) == -1 ||
+            write_all(pipe_parent_to_child[1], reg_no, strlen(reg_no)) == -1 ||
+            write_all(pipe_parent_to_child[1], age, strlen(age)) == -1 ||
+            write_all(pipe_parent_to_child[1], radius_str, strlen(radius_str)) == -1 ||
+            write_all(pipe_parent_to_child[1], square_side_str, strlen(square_side_str)) == -1 ||
+            write_all(pipe_parent_to_child[1], rect_width_str, strlen(rect_width_str)) == -1 ||
+            write_all(pipe_parent_to_child[1], rect_height_str, strlen(rect_height_str)) == -1) {
+            perror("Parent: Failed to write to child pipe");
+            goto cleanup_and_exit;
+        }
+
+        close(pipe_parent_to_child[1]); // done writing
+
+        // Read output from child
+        printf("\nWaiting for child process output...\n\n");
+        char buffer[BUFFER_SIZE];
+        ssize_t rcount;
+        while ((rcount = read(pipe_child_to_parent[0], buffer, sizeof(buffer)-1)) > 0) {
+            buffer[rcount] = '\0';
+            fputs(buffer, stdout);
+        }
+        if (rcount < 0) {
+            perror("Parent: Failed to read from child pipe");
+        }
+
+        close(pipe_child_to_parent[0]);
+        wait(NULL);
+        printf("\nParent process: Child has finished.\n");
+
+        return 0;
+
+    cleanup_and_exit:
+        close(pipe_parent_to_child[1]);
+        close(pipe_child_to_parent[0]);
+        wait(NULL);
+        return 1;
+    }
+}
